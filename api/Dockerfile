@@ -12,11 +12,11 @@ EXPOSE 8080
 CMD ["npm", "run", "dev"]
 
 
-FROM node:24-alpine AS prod
+FROM gcr.io/distroless/nodejs24-debian13 AS prod
 WORKDIR /app
-COPY --from=deps --chown=node:node /app/node_modules ./node_modules
-COPY --chown=node:node package*.json ./
-COPY --chown=node:node src/ ./src/
-USER node
+COPY --from=deps /app/node_modules ./node_modules
+COPY package*.json ./
+COPY src/ ./src/
+USER nonroot
 EXPOSE 8080
-CMD ["node", "src/server.js"]
+CMD ["src/server.js"]
