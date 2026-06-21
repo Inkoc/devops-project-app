@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:18-alpine
-    restart: unless-stopped
+    restart: on-failure:5
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -17,6 +17,7 @@ services:
 
   redis:
     image: redis:8-alpine
+    restart: on-failure:5
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -27,14 +28,15 @@ services:
     build:
       context: ./api
       target: dev
-    ports:
-      - "8080:8080"
-    env_file: .env
+    restart: on-failure:5
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    ports:
+      - "8080:8080"
+    env_file: .env
     volumes:
       - ./api/src:/app/src
     healthcheck:
@@ -47,12 +49,13 @@ services:
     build:
       context: ./frontend
       target: dev
-    ports:
-      - "3000:3000"
-    env_file: .env
+    restart: on-failure:5
     depends_on:
       api:
         condition: service_healthy
+    ports:
+      - "3000:3000"
+    env_file: .env
     volumes:
       - ./frontend/src:/app/src
 
@@ -60,12 +63,13 @@ services:
     build:
       context: ./worker
       target: dev
-    env_file: .env
+    restart: on-failure:5
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    env_file: .env
     volumes:
       - ./worker/src:/app/src
 
