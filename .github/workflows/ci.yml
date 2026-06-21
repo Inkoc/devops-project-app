@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            port: "8080"
+          - service: frontend
+            port: "3000"
+          - service: worker
+            port: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.0
+
+      - name: Build API image
+        run: docker build --target prod -t ${{ matrix.service }}:ci ./${{ matrix.service }}
+
+      - name: Start Dependencies
+        run: |
+          docker network create ci-net
+          docker run -d --name redis --network ci-net redis:8-alpine
+          docker run -d --name postgres --network ci-net \
+            -e POSTGRES_DB=ticketing \
+            -e POSTGRES_USER=ticketing_user \
+            -e POSTGRES_PASSWORD=change_me_local \
+            postgres:18-alpine
+          for i in $(seq 1 15); do
+            if docker exec postgres pg_isready -U ticketing_user -d ticketing; then break; fi
+            echo "waiting for postgres... ($i)"; sleep 2
+          done
+
+      - name: Start test
+        run: |
+          if [ -n "${{ matrix.port }}" ]; then
+            docker run -d --name ${{ matrix.service }} --network ci-net \
+              -p ${{ matrix.port }}:${{ matrix.port }} ${{ matrix.service }}:ci
+            for i in $(seq 1 15); do
+              if curl -fs http://localhost:${{ matrix.port }}/healthz; then
+                echo "${{ matrix.service }} is healthy"; exit 0
+              fi
+              echo "waiting for ${{ matrix.service }}... ($i)"; sleep 2
+            done
+            echo "health check failed for ${{ matrix.service }}"; docker logs ${{ matrix.service }}; exit 1
+          else
+            docker run -d --name ${{ matrix.service }} --network ci-net ${{ matrix.service }}:ci
+            sleep 5
+            if [ "$(docker inspect -f '{{.State.Running}}' ${{ matrix.service }})" = "true" ]; then
+              echo "${{ matrix.service }} is running"
+            else
+              echo "${{ matrix.service }} crashed"; docker logs ${{ matrix.service }}; exit 1
+            fi
+          fi
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ matrix.service }}:ci
+          format: table
+          output: trivy-${{ matrix.service }}-report.txt
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Upload Trivy report
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: trivy-${{ matrix.service }}-report
+          path: trivy-${{ matrix.service }}-report.txt
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image
+        if: github.event_name == 'push'
+        run: |
+          IMAGE=ghcr.io/inkoc/ticketing-${{ matrix.service }}
+          docker tag ${{ matrix.service }}:ci $IMAGE:${{ github.sha }}
+          docker tag ${{ matrix.service }}:ci $IMAGE:latest
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
