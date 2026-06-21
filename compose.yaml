@@ -37,6 +37,11 @@ services:
         condition: service_healthy
     volumes:
       - ./api/src:/app/src
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
@@ -46,7 +51,8 @@ services:
       - "3000:3000"
     env_file: .env
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     volumes:
       - ./frontend/src:/app/src
 
