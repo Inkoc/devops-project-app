@@ -4,6 +4,9 @@
 ### dotenv ###
 .env
 
+### Kubernetes secrets ###
+infra/k8s/secret.yaml
+
 ### Linux ###
 *~
 

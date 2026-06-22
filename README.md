@@ -11,6 +11,36 @@ Prikazuje cijeli tok: lokalni razvoj kroz Compose i produkcijski deployment kroz
 - `postgres` - trajna pohrana narudzbi
 - `redis` - queue/cache sloj
 
+## Lokalni razvoj (Docker Compose)
+
+Preduvjeti: Docker i Docker Compose.
+
+### Pokretanje (startup)
+
+```bash
+cp .env.example .env          # jednom, prilagodi vrijednosti
+docker compose up -d --build  # build + pokretanje cijelog stacka
+```
+
+Servisi:
+
+- Frontend UI: `http://localhost:3000`
+- API: `http://localhost:8080`
+
+### Praćenje i status
+
+```bash
+docker compose ps             # status servisa
+docker compose logs -f        # logovi
+```
+
+### Zaustavljanje (shutdown)
+
+```bash
+docker compose down           # zaustavi i ukloni kontejnere (podaci baze ostaju)
+docker compose down -v        # dodatno ukloni volume (BRISE podatke baze)
+```
+
 ### Brza validacija funkcionalnosti
 
 1. Health API:
@@ -45,4 +75,14 @@ Prikazuje cijeli tok: lokalni razvoj kroz Compose i produkcijski deployment kroz
 - NetworkPolicy segmentacija
 - Trivy skeniranje slika u CI pipelineu
 
-Detalji skeniranja: `docs/security/image-scan-report.md`
+Izvještaji skeniranja slika (Trivy, generirani u CI-u) nalaze se u `docs/security/`:
+
+- `trivy-api-report.txt`
+- `trivy-frontend-report.txt`
+- `trivy-worker-report.txt`
+
+## Produkcijski deployment i troubleshooting
+
+- Upute za produkcijski deployment (Kubernetes): [`infra/k8s/README.md`](infra/k8s/README.md)
+- Runbook za troubleshooting: sekcija
+  **Incident runbook** u istom dokumentu.
