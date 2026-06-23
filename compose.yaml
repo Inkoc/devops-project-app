@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro,Z
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -38,7 +38,7 @@ services:
       - "8080:8080"
     env_file: .env
     volumes:
-      - ./api/src:/app/src
+      - ./api/src:/app/src:Z
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
       interval: 5s
@@ -57,7 +57,7 @@ services:
       - "3000:3000"
     env_file: .env
     volumes:
-      - ./frontend/src:/app/src
+      - ./frontend/src:/app/src:Z
 
   worker:
     build:
@@ -71,7 +71,7 @@ services:
         condition: service_healthy
     env_file: .env
     volumes:
-      - ./worker/src:/app/src
+      - ./worker/src:/app/src:Z
 
 volumes:
   postgres-data:
